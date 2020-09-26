@@ -5,11 +5,13 @@ use std::{
     process,
 };
 #[derive(Default)]
-pub struct Context {}
+pub struct Context {
+    last_status: Option<process::ExitStatus>,
+}
 
 impl Context {
     pub fn new() -> Self {
-        Self {}
+        Self::default()
     }
 }
 
@@ -25,7 +27,7 @@ pub fn process_cmdline(line: &str, ctx: &mut Context) -> Result<(), Box<dyn Erro
         _ => {
             let mut command = process::Command::new(&command_name);
             match spawn(command.args(cmdline)) {
-                Ok(_status) => {}
+                Ok(status) => ctx.last_status = Some(status),
                 Err(x) => eprintln!(
                     "Failed to execute command: `{}` with error: {}",
                     &command_name, x
@@ -38,7 +40,14 @@ pub fn process_cmdline(line: &str, ctx: &mut Context) -> Result<(), Box<dyn Erro
 fn spawn(command: &mut process::Command) -> Result<process::ExitStatus, Box<dyn Error>> {
     Ok(command.spawn()?.wait()?)
 }
-pub fn prompt() -> Result<(), Box<dyn Error>> {
+pub fn prompt(ctx: &Context) -> Result<(), Box<dyn Error>> {
+    if let Some(code) = ctx
+        .last_status
+        .filter(|status| !status.success())
+        .and_then(|status| status.code())
+    {
+        println!("\nReturn Code: {}", code)
+    }
     print!("{} $ ", env::current_dir()?.display());
     io::stdout().flush()?;
     Ok(())
