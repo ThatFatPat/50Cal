@@ -6,8 +6,8 @@ use std::{
 };
 fn main() -> Result<(), Box<dyn Error>> {
     loop {
-        print!("{} $ ", env::current_dir().unwrap().to_str().unwrap());
-        io::stdout().flush().expect("flush failed");
+        print!("{} $ ", env::current_dir()?.to_str().unwrap());
+        io::stdout().flush()?;
         let mut input = String::new();
         io::stdin().read_line(&mut input)?;
         let mut cmdline = input.split_whitespace();
@@ -19,17 +19,16 @@ fn main() -> Result<(), Box<dyn Error>> {
             return Ok(());
         }
         let mut command = process::Command::new(&command_name);
-        match command.args(cmdline).spawn() {
-            Ok(mut child) => {
-                child.wait().expect("Command wasn't running!");
-            }
-            Err(x) => {
-                eprintln!(
-                    "Failed to execute command: `{}` with error: {}",
-                    &command_name, x
-                );
-            }
+        match spawn(command.args(cmdline)) {
+            Ok(_status) => {}
+            Err(x) => eprintln!(
+                "Failed to execute command: `{}` with error: {}",
+                &command_name, x
+            ),
         }
-        io::stdout().flush().expect("flush failed");
     }
+}
+
+fn spawn(command: &mut process::Command) -> Result<process::ExitStatus, Box<dyn Error>> {
+    Ok(command.spawn()?.wait()?)
 }
