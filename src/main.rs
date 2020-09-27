@@ -1,11 +1,10 @@
-use fiftycal::{process_cmdline, prompt, Context};
+use fiftycal::{process_line, prompt, Context};
 use std::{error::Error, io};
+
 fn main() -> Result<(), Box<dyn Error>> {
     let mut ctx = Context::new();
     loop {
         prompt(&ctx)?;
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
-        process_cmdline(&input, &mut ctx)?;
+        process_line(&mut ctx)?;
     }
 }
