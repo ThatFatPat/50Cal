@@ -2,12 +2,7 @@ extern crate directories;
 extern crate rustyline;
 use directories::BaseDirs;
 use rustyline::{error::ReadlineError, Editor};
-use std::{
-    env,
-    error::Error,
-    io::{self, Write},
-    process,
-};
+use std::{env, error::Error, process};
 
 pub struct Context {
     last_status: Option<process::ExitStatus>,
@@ -27,13 +22,22 @@ impl Context {
         }
     }
 }
+impl Drop for Context {
+    fn drop(&mut self) {
+        if let Some(base_dirs) = BaseDirs::new() {
+            self.editor
+                .save_history(&base_dirs.home_dir().join(".50cal_history"))
+                .unwrap_or_default()
+        }
+    }
+}
 impl Default for Context {
     fn default() -> Self {
         Context::new()
     }
 }
 
-pub fn process_line(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
+pub fn process_line(ctx: &mut Context) -> Result<bool, Box<dyn Error>> {
     let readline = ctx.editor.readline(&prompt(&ctx)?);
     match readline {
         Ok(line) => {
@@ -41,11 +45,14 @@ pub fn process_line(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
             let mut cmdline = line.split_whitespace();
             let command_name = match cmdline.next() {
                 Some(x) => x,
-                None => return Ok(()),
+                None => return Ok(true),
             };
             match command_name {
-                "exit" => process::exit(0),
-                "cd" => chdir(cmdline),
+                "exit" => Ok(false),
+                "cd" => {
+                    chdir(cmdline)?;
+                    Ok(true)
+                }
                 _ => {
                     let mut command = process::Command::new(&command_name);
                     match spawn(command.args(cmdline)) {
@@ -55,17 +62,15 @@ pub fn process_line(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
                             &command_name, x
                         ),
                     };
-                    Ok(())
+                    Ok(true)
                 }
             }
         }
-        Err(ReadlineError::Interrupted) => {
-            process::exit(0);
-        }
-        Err(ReadlineError::Eof) => Ok(()),
+        Err(ReadlineError::Interrupted) => Ok(false),
+        Err(ReadlineError::Eof) => Ok(true),
         Err(err) => {
             println!("Error: {:?}", err);
-            Ok(())
+            Ok(true)
         }
     }
 }
